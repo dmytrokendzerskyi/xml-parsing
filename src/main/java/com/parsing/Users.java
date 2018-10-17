@@ -324,6 +324,17 @@ public class Users {
             this.roles = value;
         }
 
+        @Override
+        public String toString() {
+            return "User{" +
+                    "id=" + id +
+                    ", name='" + name + '\'' +
+                    ", age=" + age +
+                    ", gender=" + gender +
+                    ", active=" + active +
+                    ", roles=" + roles +
+                    '}';
+        }
 
         /**
          * <p>Java class for anonymous complex type.
@@ -392,6 +403,12 @@ public class Users {
                 return this.role;
             }
 
+            @Override
+            public String toString() {
+                return "Roles{" +
+                        "role=" + role +
+                        '}';
+            }
 
             /**
              * <p>Java class for anonymous complex type.
@@ -464,6 +481,13 @@ public class Users {
                     this.name = value;
                 }
 
+                @Override
+                public String toString() {
+                    return "Role{" +
+                            "id=" + id +
+                            ", name='" + name + '\'' +
+                            '}';
+                }
             }
 
         }
