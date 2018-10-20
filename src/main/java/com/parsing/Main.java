@@ -1,5 +1,6 @@
 package com.parsing;
 
+import com.sun.xml.internal.bind.v2.util.XmlFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -7,6 +8,12 @@ import org.xml.sax.SAXException;
 
 import javax.xml.bind.*;
 import javax.xml.parsers.*;
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.EndElement;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,23 +22,84 @@ public class Main {
 
     private static final String FILE_PATH = "user.xml";
 
-    public static void main(String[] args) throws JAXBException,ParserConfigurationException,IOException,SAXException {
+    public static void main(String[] args) throws JAXBException, ParserConfigurationException, IOException, SAXException, XMLStreamException {
 
-        JAXBContext jaxbContext = JAXBContext.newInstance(Users.class);
-        Marshaller marshaller = jaxbContext.createMarshaller();
-//        OutputStream outputStream = new FileOutputStream(FILE_PATH);
-//        List<User.Role> roles = new ArrayList<>();
-//        roles.add(new User.Role(1L,"ADMIN"));
-//        roles.add(new User.Role(2L,"USER"));
-//        User user = new User(1L,"James Gosling",60, User.Gender.MALE, "programing", roles );
-//        marshaller.marshal(user,outputStream);
         InputStream inputStream = new FileInputStream(FILE_PATH);
-//        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
-//        Users users = (Users) unmarshaller.unmarshal(inputStream);
-//        users.getUser().forEach(System.out::println);
+        
+          parseWithDOM(reOpenInputStream(inputStream));
+          parseWithSAX(reOpenInputStream(inputStream));
+          parseWithSTAX(reOpenInputStream(inputStream));
+          parseWithJAXB(reOpenInputStream(inputStream));
+    }
 
-   //     parseWithDOM(reOpenInputStream(inputStream));
-        parseWithSAX(reOpenInputStream(inputStream));
+    private static void parseWithJAXB(InputStream inputStream) throws JAXBException {
+        JAXBContext jaxbContext = JAXBContext.newInstance(Users.class);
+        Unmarshaller unmarshaller = jaxbContext.createUnmarshaller();
+        Users users = (Users) unmarshaller.unmarshal(inputStream);
+        users.getUser().forEach(System.out::println);
+    }
+
+
+    private static void parseWithSTAX(InputStream inputStream) throws XMLStreamException {
+        XMLInputFactory xmlInputFactory = XMLInputFactory.newInstance();
+        XMLEventReader xmlEventReader = xmlInputFactory.createXMLEventReader(inputStream);
+        Users users = new Users();
+        Users.User user = null;
+        Users.User.Roles.Role role = null;
+        Users.User.Roles roles = null;
+        List<Users.User> userList = new ArrayList<>();
+        boolean bRole = false;
+        while (xmlEventReader.hasNext()){
+            XMLEvent xmlEvent = xmlEventReader.nextEvent();
+            if(xmlEvent.isStartElement()){
+                StartElement startElement = xmlEvent.asStartElement();
+                if(startElement.getName().getLocalPart().equals("user")){
+                    user = new Users.User();
+                }else if(startElement.getName().getLocalPart().equals("id")){
+                    xmlEvent = xmlEventReader.nextEvent();
+                    if(bRole){
+                        role.setId(Integer.valueOf(xmlEvent.asCharacters().getData()));
+                    }else {
+                        user.setId(Integer.valueOf(xmlEvent.asCharacters().getData()));
+                    }
+                }else if(startElement.getName().getLocalPart().equals("name")){
+                    xmlEvent = xmlEventReader.nextEvent();
+                    if(bRole){
+                        role.setName(xmlEvent.asCharacters().getData());
+                    }else {
+                        user.setName(xmlEvent.asCharacters().getData());
+                    }
+                }else if(startElement.getName().getLocalPart().equals("age")){
+                    xmlEvent = xmlEventReader.nextEvent();
+                    user.setAge(Integer.valueOf(xmlEvent.asCharacters().getData()));
+                }else if(startElement.getName().getLocalPart().equals("active")){
+                    xmlEvent = xmlEventReader.nextEvent();
+                    user.setActive(Boolean.getBoolean(xmlEvent.asCharacters().getData()));
+                }else if(startElement.getName().getLocalPart().equals("gender")){
+                    xmlEvent = xmlEventReader.nextEvent();
+                    user.setGender(Gender.fromValue(xmlEvent.asCharacters().getData()));
+                }else if(startElement.getName().getLocalPart().equals("role")){
+                    role = new Users.User.Roles.Role();
+                    bRole = true;
+                }else if(startElement.getName().getLocalPart().equals("roles")){
+                    roles = new Users.User.Roles();
+                    roles.role = new ArrayList<>();
+                }
+            }
+
+            if(xmlEvent.isEndElement()){
+                EndElement endElement = xmlEvent.asEndElement();
+                if(endElement.getName().getLocalPart().equals("user")){
+                    user.roles = roles;
+                    userList.add(user);
+                } else if(endElement.getName().getLocalPart().equals("role")){
+                    roles.getRole().add(role);
+                    bRole = false;
+                }
+            }
+        }
+        users.user = userList;
+        users.getUser().forEach(System.out::println);
     }
 
     private static void parseWithSAX(InputStream fileXmlInputStream) throws ParserConfigurationException, SAXException, IOException {
@@ -41,6 +109,7 @@ public class Main {
         saxParser.parse(fileXmlInputStream, usersHadler);
         Users users = new Users();
         users.user = usersHadler.getUserList();
+        users.getUser().forEach(System.out::println);
     }
 
     private static void parseWithDOM(InputStream fileXmlInputStream) throws ParserConfigurationException, IOException, SAXException {
